@@ -1,0 +1,48 @@
+- hosts: jenkins
+  become: yes
+  tasks:
+
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+- hosts: jenkins
+  become: yes
+  tasks:
+
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+
+    - name: Start Docker
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    - name: Pull Jenkins image
+      command: docker pull jenkins/jenkins:lts
+
+    - name: Run Jenkins container
+      command: >
+        docker run -d
+        --name jenkins
+        -p 8080:8080
+        -p 50000:50000
+        --restart unless-stopped
+        jenkins/jenkins:lts
+      ignore_errors: yes
