@@ -1,55 +1,24 @@
 pipeline {
     agent any
 
-    options {
-        timestamps()
-    }
-
     stages {
 
         stage('Checkout') {
             steps {
-                echo "Cloning repository..."
                 checkout scm
             }
         }
 
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                echo "DevSecOps pipeline running 🚀"
+                sh 'docker build -t llm-devsecops-app:latest .'
             }
         }
 
-    }
-
-    post {
-
-        success {
-            slackSend(
-                channel: "#llm-devsecops-project",
-                color: "good",
-                message: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                tokenCredentialId: "slack-webhook"
-            )
+        stage('Verify Image') {
+            steps {
+                sh 'docker images | grep llm-devsecops-app'
+            }
         }
-
-        failure {
-            slackSend(
-                channel: "#llm-devsecops-project",
-                color: "danger",
-                message: "❌ FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                tokenCredentialId: "slack-webhook"
-            )
-        }
-
-        unstable {
-            slackSend(
-                channel: "#llm-devsecops-project",
-                color: "warning",
-                message: "⚠️ UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                tokenCredentialId: "slack-webhook"
-            )
-        }
-
     }
 }
