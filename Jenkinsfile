@@ -26,7 +26,7 @@ pipeline {
 
         success {
             slackSend(
-                channel: "#devops",
+                channel: "#llm-devsecops-project",
                 color: "good",
                 message: "✅ SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 tokenCredentialId: "slack-webhook"
@@ -35,7 +35,7 @@ pipeline {
 
         failure {
             slackSend(
-                channel: "#devops",
+                channel: "#llm-devsecops-project",
                 color: "danger",
                 message: "❌ FAILED: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 tokenCredentialId: "slack-webhook"
@@ -44,7 +44,7 @@ pipeline {
 
         unstable {
             slackSend(
-                channel: "#devops",
+                channel: "#llm-devsecops-project",
                 color: "warning",
                 message: "⚠️ UNSTABLE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
                 tokenCredentialId: "slack-webhook"
