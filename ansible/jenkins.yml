@@ -42,6 +42,10 @@
     - name: Build custom Jenkins image
       command: docker build -t custom-jenkins -f /home/ec2-user/Dockerfile.jenkins /home/ec2-user
 
+    - name: Remove old Jenkins container if it exists
+      command: docker rm -f jenkins
+      ignore_errors: yes
+
     - name: Run Jenkins container
       command: >
         docker run -d
