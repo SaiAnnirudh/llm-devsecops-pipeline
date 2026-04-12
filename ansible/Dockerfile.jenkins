@@ -7,8 +7,13 @@ RUN apt-get update && \
     apt-get install -y docker.io python3 python3-pip python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Checkov system-wide
-RUN pip3 install checkov --break-system-packages || pip3 install checkov
+# Create a virtual environment and place it in the PATH
+ENV VIRTUAL_ENV=/opt/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Install Checkov safely inside the venv
+RUN pip install checkov
 
 # Add jenkins user to docker group
 RUN usermod -aG docker jenkins
