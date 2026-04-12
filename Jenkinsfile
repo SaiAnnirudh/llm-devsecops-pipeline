@@ -20,5 +20,22 @@ pipeline {
                 sh 'docker images | grep llm-devsecops-app'
             }
         }
+
+        stage('Security Validation Services') {
+            parallel {
+                stage('Primary Gate (Checkov)') {
+                    steps {
+                        sh 'checkov -d terraform/'
+                    }
+                }
+                stage('Async Deep Scan (LLM)') {
+                    steps {
+                        withCredentials([string(credentialsId: 'EC2_API_KEY', variable: 'EC2_API_KEY')]) {
+                            sh 'python3 scripts/llm_async_client.py terraform/'
+                        }
+                    }
+                }
+            }
+        }
     }
 }
