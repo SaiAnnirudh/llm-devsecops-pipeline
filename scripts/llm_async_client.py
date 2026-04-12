@@ -4,23 +4,52 @@ import json
 import urllib.request
 import threading
 
-def send_payload_async(payload, endpoint, api_key):
-    """Sends the IaC payload asynchronously to the EC2 LLM engine."""
+def evaluate_with_openai_async(payload, api_key):
+    """Sends the IaC payload to OpenAI GPT-4 asynchronously for deep validation."""
     def _send():
         try:
+            endpoint = "https://api.openai.com/v1/chat/completions"
+            # Format the payload to a text representation of the IaC
+            iac_content = ""
+            for filepath, content in payload["files"].items():
+                iac_content += f"\n\n--- File: {filepath} ---\n{content}\n"
+            
+            prompt = (
+                "You are an expert Cloud Security Architect. Review the following "
+                "Infrastructure as Code for potential security vulnerabilities, misconfigurations, "
+                "and compliance violations that static tools might miss. Focus on complex logic flaws.\n"
+                f"{iac_content}"
+            )
+            
+            data = {
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "system", "content": "You are a DevSecOps LLM engine."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.2
+            }
+            
             req = urllib.request.Request(
                 endpoint,
-                data=json.dumps(payload).encode('utf-8'),
+                data=json.dumps(data).encode('utf-8'),
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {api_key}'
                 },
                 method='POST'
             )
-            with urllib.request.urlopen(req, timeout=5) as response:
-                print(f"[Async Scan] Payload sent. Status: {response.getcode()}")
+            with urllib.request.urlopen(req, timeout=30) as response:
+                result = json.loads(response.read().decode('utf-8'))
+                print("[LLM Scan] Open AI Validation complete. Findings:")
+                print(result['choices'][0]['message']['content'])
+                
+                # Write to output JSON as per Phase 1 requirements
+                with open("llm_validation_results.json", "w") as out:
+                    json.dump(result, out, indent=2)
+                    
         except Exception as e:
-            print(f"[Async Scan] Failed to send payload: {e}")
+            print(f"[LLM Scan] Failed to evaluate payload with OpenAI: {e}")
             
     thread = threading.Thread(target=_send)
     thread.start()
@@ -32,9 +61,11 @@ def main():
         sys.exit(1)
 
     scan_dir = sys.argv[1]
-    api_key = os.environ.get("EC2_API_KEY", "dummy_key_if_not_set")
-    # Replace with the actual EC2 endpoint URL
-    endpoint = os.environ.get("EC2_LLM_ENDPOINT", "http://localhost:8080/scan")
+    api_key = os.environ.get("OPENAI_API_KEY")
+    
+    if not api_key:
+        print("[LLM Scan] OPENAI_API_KEY not found in environment, proceeding without LLM validation.")
+        sys.exit(0)
 
     # A simple mock payload generator reading files in the directory
     payload = {"files": {}}
@@ -48,9 +79,11 @@ def main():
                 except Exception as e:
                     pass
 
-    print(f"[Async Scan] Initiating async LLM scan on {scan_dir}...")
+    print(f"[LLM Scan] Initiating async OpenAI GPT validation on {scan_dir}...")
     # Trigger the asynchronous request
-    send_payload_async(payload, endpoint, api_key)
+    thread = evaluate_with_openai_async(payload, api_key)
+    # Wait for completion just for this demo, usually it would just exit
+    thread.join()
     # Return 202 Accepted logic from the client script perspective
     print("[Async Scan] HTTP 202 Accepted. Engine will validate asynchronously.")
     sys.exit(0)

@@ -30,7 +30,7 @@ pipeline {
                 }
                 stage('Async Deep Scan (LLM)') {
                     steps {
-                        withCredentials([string(credentialsId: 'EC2_API_KEY', variable: 'EC2_API_KEY')]) {
+                        withCredentials([string(credentialsId: 'OPENAI_API_KEY', variable: 'OPENAI_API_KEY')]) {
                             sh 'python3 scripts/llm_async_client.py terraform/'
                         }
                     }
