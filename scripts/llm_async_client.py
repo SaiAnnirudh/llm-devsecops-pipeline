@@ -22,7 +22,7 @@ def evaluate_with_openai_async(payload, api_key):
             )
             
             data = {
-                "model": "gpt-4",
+                "model": "gpt-3.5-turbo",
                 "messages": [
                     {"role": "system", "content": "You are a DevSecOps LLM engine."},
                     {"role": "user", "content": prompt}
@@ -48,6 +48,10 @@ def evaluate_with_openai_async(payload, api_key):
                 with open("llm_validation_results.json", "w") as out:
                     json.dump(result, out, indent=2)
                     
+        except urllib.error.HTTPError as he:
+            # Print the actual API error from OpenAI instead of just the HTTP Code
+            error_body = he.read().decode('utf-8')
+            print(f"[LLM Scan] HTTP Error {he.code}: {error_body}")
         except Exception as e:
             print(f"[LLM Scan] Failed to evaluate payload with OpenAI: {e}")
             
