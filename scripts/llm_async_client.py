@@ -8,6 +8,15 @@ import threading
 results = {}
 results_lock = threading.Lock()
 
+def map_error(code, raw_ext):
+    if code == 429:
+        return "HTTP 429: Quota Exceeded / Billing Empty"
+    elif code == 403:
+        return "HTTP 403: Forbidden - Invalid API Credentials"
+    elif code == 404:
+        return "HTTP 404: Not Found - Model or Endpoint unverified"
+    return f"HTTP Error {code}: {raw_ext}"
+
 def evaluate_with_openai(prompt, api_key):
     try:
         if not api_key:
@@ -32,7 +41,7 @@ def evaluate_with_openai(prompt, api_key):
             res = json.loads(response.read().decode('utf-8'))
             return {"status": "success", "findings": res['choices'][0]['message']['content']}
     except urllib.error.HTTPError as he:
-        return {"status": f"HTTP Error {he.code}", "findings": he.read().decode('utf-8')}
+        return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
     except Exception as e:
         return {"status": "error", "findings": str(e)}
 
@@ -41,7 +50,7 @@ def evaluate_with_gemini(prompt, api_key):
         if not api_key:
             return {"status": "skipped", "findings": "No API Key provided"}
             
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
         data = {
             "contents": [{"parts": [{"text": "You are a DevSecOps LLM engine. " + prompt}]}]
         }
@@ -55,7 +64,7 @@ def evaluate_with_gemini(prompt, api_key):
             res = json.loads(response.read().decode('utf-8'))
             return {"status": "success", "findings": res['candidates'][0]['content']['parts'][0]['text']}
     except urllib.error.HTTPError as he:
-        return {"status": f"HTTP Error {he.code}", "findings": he.read().decode('utf-8')}
+        return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
     except Exception as e:
         return {"status": "error", "findings": str(e)}
 
@@ -83,7 +92,7 @@ def evaluate_with_groq(prompt, api_key):
             res = json.loads(response.read().decode('utf-8'))
             return {"status": "success", "findings": res['choices'][0]['message']['content']}
     except urllib.error.HTTPError as he:
-        return {"status": f"HTTP Error {he.code}", "findings": he.read().decode('utf-8')}
+        return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
     except Exception as e:
         return {"status": "error", "findings": str(e)}
 
@@ -92,6 +101,48 @@ def run_evaluation(name, func, prompt, api_key):
     with results_lock:
         results[name] = res
     print(f"[LLM Scan] {name} evaluation complete. Status: {res['status']}")
+
+def send_slack_alert(results_data):
+    webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        print("[Slack] Webhook not configured/loaded. Skipping alert.")
+        return
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "🛡️ Phase 2: Async LLM Validation Engine",
+                "emoji": True
+            }
+        }
+    ]
+    
+    for agent, info in results_data.items():
+        status = info.get("status", "Unknown")
+        color = "🟢" if "success" in status.lower() else "🔴"
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*{color} {agent} Platform*\nStatus: `{status}`"
+            }
+        })
+        
+    slack_payload = {"blocks": blocks}
+    
+    try:
+        req = urllib.request.Request(
+            webhook_url,
+            data=json.dumps(slack_payload).encode('utf-8'),
+            headers={'Content-Type': 'application/json'},
+            method='POST'
+        )
+        urllib.request.urlopen(req, timeout=10)
+        print("[Slack] DevSecOps Alert successfully transmitted!")
+    except Exception as e:
+        print(f"[Slack] Failed to send alert: {e}")
 
 def main():
     if len(sys.argv) < 2:
@@ -126,7 +177,7 @@ def main():
     t1 = threading.Thread(target=run_evaluation, args=("OpenAI", evaluate_with_openai, prompt, os.environ.get("OPENAI_API_KEY")))
     threads.append(t1)
     
-    # 2. Gemini (gemini-1.5-flash)
+    # 2. Gemini (gemini-1.5-flash-latest)
     t2 = threading.Thread(target=run_evaluation, args=("Gemini", evaluate_with_gemini, prompt, os.environ.get("GEMINI_API_KEY")))
     threads.append(t2)
     
@@ -143,8 +194,12 @@ def main():
     # Write unified report
     with open("llm_validation_results.json", "w") as out:
         json.dump(results, out, indent=2)
-
+        
     print("[Async Scan] Validations efficiently stored in llm_validation_results.json")
+    
+    # PHASE 2: Dispatch results to Slack
+    send_slack_alert(results)
+    
     sys.exit(0)
 
 if __name__ == "__main__":
