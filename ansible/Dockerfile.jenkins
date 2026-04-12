@@ -1,0 +1,17 @@
+FROM jenkins/jenkins:lts
+# Switch to root to install prerequisites
+USER root
+
+# Install Docker, Python3, and Pip
+RUN apt-get update && \
+    apt-get install -y docker.io python3 python3-pip python3-venv && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Checkov system-wide
+RUN pip3 install checkov --break-system-packages || pip3 install checkov
+
+# Add jenkins user to docker group
+RUN usermod -aG docker jenkins
+
+# Revert to root user specifically for Docker socket communication
+USER root

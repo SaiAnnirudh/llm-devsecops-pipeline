@@ -34,8 +34,13 @@
         groups: docker
         append: yes
 
-    - name: Pull Jenkins image
-      command: docker pull jenkins/jenkins:lts
+    - name: Copy custom Jenkins Dockerfile
+      copy:
+        src: Dockerfile.jenkins
+        dest: /home/ec2-user/Dockerfile.jenkins
+
+    - name: Build custom Jenkins image
+      command: docker build -t custom-jenkins -f /home/ec2-user/Dockerfile.jenkins /home/ec2-user
 
     - name: Run Jenkins container
       command: >
@@ -43,6 +48,8 @@
         --name jenkins
         -p 8080:8080
         -p 50000:50000
+        -v /var/run/docker.sock:/var/run/docker.sock
+        -u root
         --restart unless-stopped
-        jenkins/jenkins:lts
+        custom-jenkins
       ignore_errors: yes
