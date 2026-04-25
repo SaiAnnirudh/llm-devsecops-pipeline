@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM-DevSecOps Dashboard</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="background-effects">
+        <div class="glow glow-1"></div>
+        <div class="glow glow-2"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <div class="header-inner">
+                <h1>DevSecOps <span class="highlight">Intelligence</span></h1>
+                <p>Asynchronous multi-LLM security validation engine integrating OpenAI, Gemini, and Groq</p>
+                <div class="upload-container" style="margin-top: 1rem;">
+                    <label for="jsonUpload" class="upload-btn">Upload Scan Results (JSON)</label>
+                    <input type="file" id="jsonUpload" accept=".json" style="display: none;">
+                </div>
+            </div>
+            <div class="status-badge" id="overall-status">
+                <div class="blob"></div>
+                Checking Pipeline...
+            </div>
+        </header>
+
+        <div class="dashboard-grid" id="engines-grid">
+            <!-- Dynamically populated by JS -->
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <p>Loading AI Agent findings...</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

@@ -3,6 +3,8 @@ import sys
 import json
 import urllib.request
 import threading
+import time
+import re
 
 # Shared dictionary to store results across threads safely
 results = {}
@@ -17,40 +19,46 @@ def map_error(code, raw_ext):
         return "HTTP 404: Not Found - Model or Endpoint unverified"
     return f"HTTP Error {code}: {raw_ext}"
 
-def evaluate_with_openai(prompt, api_key):
+def parse_llm_response(text):
     try:
-        if not api_key:
-            return {"status": "skipped", "findings": "No API Key provided"}
-        
-        endpoint = "https://api.openai.com/v1/chat/completions"
-        data = {
-            "model": "gpt-3.5-turbo",
-            "messages": [
-                {"role": "system", "content": "You are a DevSecOps LLM engine."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.2
-        }
+        # Remove potential markdown formatting
+        text = re.sub(r'^```(?:json)?\s*', '', text.strip(), flags=re.IGNORECASE)
+        text = re.sub(r'\s*```$', '', text)
+        return json.loads(text)
+    except Exception:
+        # Fallback if the LLM didn't return valid JSON
+        return [{"file_path": "Unknown", "issue_title": "Unstructured Findings", "description": text, "original_code": "", "suggested_code_replacement": ""}]
+
+def push_metrics_to_pushgateway(results_data):
+    pushgateway_url = os.environ.get("PUSHGATEWAY_URL", "http://localhost:9091")
+    try:
+        job_name = "llm_devsecops_scan"
+        metrics_data = f"llm_scan_last_success_time {time.time()}\n"
+        for agent, info in results_data.items():
+            status_val = 1 if info.get("status") == "success" else 0
+            metrics_data += f'llm_agent_status{{agent="{agent}"}} {status_val}\n'
+            
+            findings = info.get("findings", [])
+            if isinstance(findings, list):
+                metrics_data += f'llm_agent_findings_count{{agent="{agent}"}} {len(findings)}\n'
+                
         req = urllib.request.Request(
-            endpoint,
-            data=json.dumps(data).encode('utf-8'),
-            headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
+            f"{pushgateway_url}/metrics/job/{job_name}",
+            data=metrics_data.encode('utf-8'),
+            headers={'Content-Type': 'text/plain'},
             method='POST'
         )
-        with urllib.request.urlopen(req, timeout=30) as response:
-            res = json.loads(response.read().decode('utf-8'))
-            return {"status": "success", "findings": res['choices'][0]['message']['content']}
-    except urllib.error.HTTPError as he:
-        return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
+        urllib.request.urlopen(req, timeout=5)
+        print("[Metrics] Successfully pushed metrics to Pushgateway.")
     except Exception as e:
-        return {"status": "error", "findings": str(e)}
+        print(f"[Metrics] Failed to push to Pushgateway: {e} (Is Pushgateway running?)")
 
 def evaluate_with_gemini(prompt, api_key):
     try:
         if not api_key:
             return {"status": "skipped", "findings": "No API Key provided"}
             
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key={api_key}"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         data = {
             "contents": [{"parts": [{"text": "You are a DevSecOps LLM engine. " + prompt}]}]
         }
@@ -62,35 +70,8 @@ def evaluate_with_gemini(prompt, api_key):
         )
         with urllib.request.urlopen(req, timeout=30) as response:
             res = json.loads(response.read().decode('utf-8'))
-            return {"status": "success", "findings": res['candidates'][0]['content']['parts'][0]['text']}
-    except urllib.error.HTTPError as he:
-        return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
-    except Exception as e:
-        return {"status": "error", "findings": str(e)}
-
-def evaluate_with_groq(prompt, api_key):
-    try:
-        if not api_key:
-            return {"status": "skipped", "findings": "No API Key provided"}
-            
-        endpoint = "https://api.groq.com/openai/v1/chat/completions"
-        data = {
-            "model": "llama3-8b-8192",
-            "messages": [
-                {"role": "system", "content": "You are a DevSecOps LLM engine."},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.2
-        }
-        req = urllib.request.Request(
-            endpoint,
-            data=json.dumps(data).encode('utf-8'),
-            headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {api_key}'},
-            method='POST'
-        )
-        with urllib.request.urlopen(req, timeout=30) as response:
-            res = json.loads(response.read().decode('utf-8'))
-            return {"status": "success", "findings": res['choices'][0]['message']['content']}
+            findings_text = res['candidates'][0]['content']['parts'][0]['text']
+            return {"status": "success", "findings": parse_llm_response(findings_text)}
     except urllib.error.HTTPError as he:
         return {"status": map_error(he.code, he.read().decode('utf-8')), "findings": None}
     except Exception as e:
@@ -166,30 +147,25 @@ def main():
     prompt = (
         "Review the following Infrastructure as Code for potential security vulnerabilities, misconfigurations, "
         "and compliance violations that static tools might miss. Focus on complex logic flaws.\n"
-        f"{iac_content}"
+        "You MUST return your findings as a strict JSON array of objects. Do not include markdown code blocks (like ```json), just the raw JSON. "
+        "Each object must have exactly these keys:\n"
+        "- \"file_path\": The path to the file with the issue.\n"
+        "- \"issue_title\": A short title for the vulnerability.\n"
+        "- \"description\": Detailed explanation of the risk.\n"
+        "- \"original_code\": The specific lines of code that are vulnerable.\n"
+        "- \"suggested_code_replacement\": The exact code snippet to fix the issue.\n"
+        f"\n{iac_content}"
     )
 
-    print(f"[LLM Scan] Initiating async ensemble validation on {scan_dir}...")
-    
-    threads = []
-    
-    # 1. OpenAI (gpt-3.5-turbo)
-    t1 = threading.Thread(target=run_evaluation, args=("OpenAI", evaluate_with_openai, prompt, os.environ.get("OPENAI_API_KEY")))
-    threads.append(t1)
-    
-    # 2. Gemini (gemini-1.5-flash-latest)
-    t2 = threading.Thread(target=run_evaluation, args=("Gemini", evaluate_with_gemini, prompt, os.environ.get("GEMINI_API_KEY")))
-    threads.append(t2)
-    
-    # 3. Groq (llama3-8b-8192)
-    t3 = threading.Thread(target=run_evaluation, args=("Groq", evaluate_with_groq, prompt, os.environ.get("GROQ_API_KEY")))
-    threads.append(t3)
+    print(f"[LLM Scan] Initiating Gemini validation on {scan_dir}...")
 
-    for t in threads:
-        t.start()
-        
-    for t in threads:
-        t.join()
+    # Gemini (gemini-1.5-flash)
+    gemini_thread = threading.Thread(
+        target=run_evaluation,
+        args=("Gemini", evaluate_with_gemini, prompt, os.environ.get("GEMINI_API_KEY"))
+    )
+    gemini_thread.start()
+    gemini_thread.join()
 
     # Write unified report
     with open("llm_validation_results.json", "w") as out:
@@ -199,6 +175,9 @@ def main():
     
     # PHASE 2: Dispatch results to Slack
     send_slack_alert(results)
+    
+    # PHASE 3: Push metrics
+    push_metrics_to_pushgateway(results)
     
     sys.exit(0)
 

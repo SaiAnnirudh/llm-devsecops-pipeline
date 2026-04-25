@@ -1,0 +1,14 @@
+{
+  "OpenAI": {
+    "status": "skipped",
+    "findings": "No API Key provided"
+  },
+  "Gemini": {
+    "status": "skipped",
+    "findings": "No API Key provided"
+  },
+  "Groq": {
+    "status": "HTTP 403: Forbidden - Invalid API Credentials",
+    "findings": null
+  }
+}

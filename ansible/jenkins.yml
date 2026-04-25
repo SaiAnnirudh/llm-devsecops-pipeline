@@ -1,7 +1,6 @@
 - hosts: jenkins
   become: yes
   tasks:
-
     - name: Install Docker
       yum:
         name: docker
@@ -16,7 +15,6 @@
 - hosts: jenkins
   become: yes
   tasks:
-
     - name: Install Docker
       yum:
         name: docker
