@@ -58,7 +58,7 @@ def evaluate_with_gemini(prompt, api_key):
         if not api_key:
             return {"status": "skipped", "findings": "No API Key provided"}
             
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}"
         data = {
             "contents": [{"parts": [{"text": "You are a DevSecOps LLM engine. " + prompt}]}]
         }
@@ -68,7 +68,7 @@ def evaluate_with_gemini(prompt, api_key):
             headers={'Content-Type': 'application/json'},
             method='POST'
         )
-        with urllib.request.urlopen(req, timeout=30) as response:
+        with urllib.request.urlopen(req, timeout=60) as response:
             res = json.loads(response.read().decode('utf-8'))
             findings_text = res['candidates'][0]['content']['parts'][0]['text']
             return {"status": "success", "findings": parse_llm_response(findings_text)}
