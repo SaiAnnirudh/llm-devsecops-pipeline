@@ -41,7 +41,7 @@ pipeline {
                             string(credentialsId: 'GEMINI_API_KEY', variable: 'GEMINI_API_KEY'),
                             string(credentialsId: 'SLACK_WEBHOOK_URL', variable: 'SLACK_WEBHOOK_URL')
                         ]) {
-                            sh 'python3.8 scripts/llm_async_client.py ${SCAN_DIR}'
+                            sh 'python3 scripts/llm_async_client.py ${SCAN_DIR}'
                         }
                     }
                 }
