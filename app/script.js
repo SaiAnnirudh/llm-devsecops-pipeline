@@ -1,175 +1,91 @@
-document.addEventListener('DOMContentLoaded', () => {
-    fetchResults();
-    setupFileUpload();
+document.getElementById('jsonFileInput').addEventListener('change', function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    document.getElementById('fileNameDisplay').textContent = `File: ${file.name}`;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            renderFindings(data);
+            updateStats(data);
+        } catch (error) {
+            alert('Error parsing JSON file. Please ensure it is a valid Gemini scan log.');
+        }
+    };
+    reader.readAsText(file);
 });
 
-function setupFileUpload() {
-    const fileInput = document.getElementById('jsonUpload');
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                renderDashboard(data);
-                document.getElementById('overall-status').innerHTML = `<div class="blob success"></div> Custom Upload Active`;
-            } catch (err) {
-                alert("Invalid JSON file uploaded.");
-            }
-        };
-        reader.readAsText(file);
-    });
+function updateStats(data) {
+    const findings = data.findings || [];
+    const high = findings.filter(f => f.severity?.toLowerCase() === 'high').length;
+    const medium = findings.filter(f => f.severity?.toLowerCase() === 'medium').length;
+    
+    document.getElementById('stat-total').textContent = findings.length;
+    document.getElementById('stat-high').textContent = high;
+    document.getElementById('stat-medium').textContent = medium;
 }
 
-async function fetchResults() {
-    const grid = document.getElementById('engines-grid');
-    const overallBadge = document.getElementById('overall-status');
-    const blob = overallBadge.querySelector('.blob');
-    
-    try {
-        // Fetch generated JSON from root directory in container
-        const response = await fetch('llm_validation_results.json');
-        
-        if (!response.ok) {
-            throw new Error(`HTTP Error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        renderDashboard(data);
-        
-        // Update Overall Status
-        blob.className = 'blob success';
-        overallBadge.innerHTML = `<div class="blob success"></div> Pipeline Active`;
-        
-    } catch (error) {
-        console.error("Could not load validation results:", error);
-        
-        // Show Fallback UI if not found
-        grid.innerHTML = `
-            <div class="card" style="grid-column: 1 / -1; text-align: center;">
-                <h3 style="color: var(--warning); margin-bottom: 1rem;">No Scan Results Found</h3>
-                <p style="color: var(--text-secondary);">The pipeline has not completed yet, or 'llm_validation_results.json' is missing.<br>Run the Security Validation stage to generate findings.</p>
-            </div>
-        `;
-        
-        blob.className = 'blob error';
-        overallBadge.innerHTML = `<div class="blob error"></div> Pipeline Offline`;
-    }
-}
+function renderFindings(data) {
+    const container = document.getElementById('findingsContainer');
+    container.innerHTML = '';
 
-function renderDashboard(data) {
-    const grid = document.getElementById('engines-grid');
-    grid.innerHTML = '';
-    
-    const engines = Object.keys(data);
-    
-    if (engines.length === 0) {
-        grid.innerHTML = '<p>No engines evaluated.</p>';
+    const findings = data.findings || [];
+
+    if (findings.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem;">No vulnerabilities detected. System Secure.</div>';
         return;
     }
-    
-    engines.forEach(engine => {
-        const result = data[engine];
-        let statusObj = parseStatus(result.status);
-        let findings = result.findings || "No detailed output provided by the engine.";
-        
+
+    findings.forEach((finding, index) => {
         const card = document.createElement('div');
-        card.className = 'card';
+        card.className = 'finding-card';
         
-        let findingsHTML = '';
-        if (Array.isArray(findings)) {
-            if (findings.length === 0) {
-                findingsHTML = '<div class="findings-box" style="text-align:center;">No vulnerabilities found.</div>';
-            } else {
-                findings.forEach(issue => {
-                    findingsHTML += `
-                        <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--card-border);">
-                            <div class="issue-title">${escapeHTML(issue.issue_title || "Security Issue")}</div>
-                            <div class="issue-desc">${escapeHTML(issue.description || "")}</div>
-                            
-                            <div class="diff-container">
-                                <div class="diff-header">
-                                    <span>${escapeHTML(issue.file_path || "Unknown File")}</span>
-                                </div>
-                                <div class="diff-body">
-                                    <div class="diff-row">
-                                        <div class="diff-old">
-                                            <div style="color: #ef4444; font-weight:bold; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(239,68,68,0.2);">Original Code</div>
-                                            ${escapeHTML(issue.original_code || "")}
-                                        </div>
-                                        <div class="diff-new">
-                                            <div style="color: #10b981; font-weight:bold; margin-bottom: 0.5rem; border-bottom: 1px solid rgba(16,185,129,0.2);">Suggested Fix</div>
-                                            ${escapeHTML(issue.suggested_code_replacement || "")}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-        } else {
-            // Fallback for unstructured text
-            findingsHTML = `<div class="findings-box">${escapeHTML(String(findings))}</div>`;
+        const severityClass = `severity-${finding.severity?.toLowerCase() || 'low'}`;
+        
+        // Split findings string into description and code parts if possible
+        // Expected format: "Description... Vulnerable Code: ... Suggested Fix: ..."
+        let description = finding.findings || "No details provided.";
+        let vulnerableCode = "Check original source file.";
+        let suggestedFix = "Refer to best practices.";
+
+        if (description.includes("Vulnerable Code:")) {
+            const parts = description.split("Vulnerable Code:");
+            description = parts[0];
+            const codeParts = parts[1].split("Suggested Fix:");
+            vulnerableCode = codeParts[0].trim();
+            suggestedFix = codeParts[1] ? codeParts[1].trim() : "Review required.";
         }
 
         card.innerHTML = `
-            <div class="card-header">
-                <div class="engine-name">
-                    ${getEngineIcon(engine)}
-                    ${engine}
+            <div class="finding-header">
+                <div class="finding-title-group">
+                    <div class="finding-file">${finding.file || 'Global Configuration'}</div>
+                    <div class="finding-title">${finding.title || 'Security Misconfiguration'}</div>
                 </div>
-                <div class="engine-status ${statusObj.cssClass}">
-                    ${statusObj.text}
-                </div>
+                <span class="severity-pill ${severityClass}">${finding.severity || 'UNKNOWN'}</span>
             </div>
-            <div class="card-body">
-                ${findingsHTML}
+            <div class="finding-body">
+                <div class="finding-description">${description}</div>
+                <div class="code-comparison">
+                    <div class="code-pane">
+                        <div class="pane-label">Detected Risk</div>
+                        <pre class="vulnerable-text">${escapeHtml(vulnerableCode)}</pre>
+                    </div>
+                    <div class="code-pane">
+                        <div class="pane-label" style="color: var(--security-low)">Gemini Suggestion</div>
+                        <pre class="safe-text">${escapeHtml(suggestedFix)}</pre>
+                    </div>
+                </div>
             </div>
         `;
-        
-        grid.appendChild(card);
+        container.appendChild(card);
     });
 }
 
-function parseStatus(statusStr) {
-    if (!statusStr) return { text: 'UNKNOWN', cssClass: 'status-skipped' };
-    
-    const s = statusStr.toLowerCase();
-    if (s.includes('success')) {
-        return { text: 'SECURE', cssClass: 'status-success' };
-    }
-    if (s.includes('429') || s.includes('qouta') || s.includes('billing')) {
-        return { text: 'RATE LIMITED', cssClass: 'status-rate' };
-    }
-    if (s.includes('403') || s.includes('404') || s.includes('error')) {
-        return { text: 'CONNECTION ERROR', cssClass: 'status-error' };
-    }
-    if (s.includes('skipped')) {
-        return { text: 'SKIPPED', cssClass: 'status-skipped' };
-    }
-    
-    return { text: statusStr.toUpperCase(), cssClass: 'status-skipped' };
-}
-
-function getEngineIcon(name) {
-    const n = name.toLowerCase();
-    if (n.includes('openai')) return '🤖';
-    if (n.includes('gemini')) return '✨';
-    if (n.includes('groq')) return '⚡';
-    return '🔍';
-}
-
-function escapeHTML(str) {
-    return str.replace(/[&<>'"]/g, 
-        tag => ({
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            "'": '&#39;',
-            '"': '&quot;'
-        }[tag])
-    );
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }

@@ -1,48 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM-DevSecOps Dashboard</title>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap"
-        rel="stylesheet">
+    <title>Gemini-Shield | AI Security Intelligence</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono&display=swap" rel="stylesheet">
 </head>
-
 <body>
-    <div class="background-effects">
-        <div class="glow glow-1"></div>
-        <div class="glow glow-2"></div>
-    </div>
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h1>Gemini-Shield <span style="font-weight: 400; color: var(--text-secondary); margin-left: 8px;">| Intelligence</span></h1>
+        </div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            SYSTEM ACTIVE
+        </div>
+    </header>
 
     <div class="container">
-        <header>
-            <div class="header-inner">
-                <h1>DevSecOps <span class="highlight">Intelligence</span></h1>
-                <p>Asynchronous multi-LLM security validation engine integrating OpenAI, Gemini, and Groq</p>
-                <div class="upload-container" style="margin-top: 1rem;">
-                    <label for="jsonUpload" class="upload-btn">Upload Scan Results (JSON)</label>
-                    <input type="file" id="jsonUpload" accept=".json" style="display: none;">
-                </div>
+        <!-- Stats Dashboard -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Total Findings</span>
+                <div class="stat-value" id="stat-total">-</div>
             </div>
-            <div class="status-badge" id="overall-status">
-                <div class="blob"></div>
-                Checking Pipeline...
+            <div class="stat-card">
+                <span class="stat-label" style="color: var(--security-high);">High Risk</span>
+                <div class="stat-value" id="stat-high">-</div>
             </div>
-        </header>
+            <div class="stat-card">
+                <span class="stat-label" style="color: var(--security-medium);">Medium Risk</span>
+                <div class="stat-value" id="stat-medium">-</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Scan Confidence</span>
+                <div class="stat-value">98.4%</div>
+            </div>
+        </div>
 
-        <div class="dashboard-grid" id="engines-grid">
-            <!-- Dynamically populated by JS -->
-            <div class="loading-state">
-                <div class="spinner"></div>
-                <p>Loading AI Agent findings...</p>
+        <div class="controls-section">
+            <div class="file-info">
+                <span id="fileNameDisplay">Awaiting Security Validation Log...</span>
             </div>
+            <label class="file-upload-btn">
+                Upload Scan Log
+                <input type="file" id="jsonFileInput" accept=".json" style="display: none;">
+            </label>
+        </div>
+
+        <div id="findingsContainer" class="findings-list">
+            <!-- Findings will be injected here -->
         </div>
     </div>
 
     <script src="script.js"></script>
 </body>
-
 </html>
