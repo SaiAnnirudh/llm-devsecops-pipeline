@@ -58,7 +58,7 @@ def evaluate_with_gemini(prompt, api_key):
         if not api_key:
             return {"status": "skipped", "findings": "No API Key provided"}
             
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={api_key}"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         data = {
             "contents": [{"parts": [{"text": "You are a DevSecOps LLM engine. " + prompt}]}]
         }
@@ -136,13 +136,13 @@ def main():
     iac_content = ""
     for root, _, files in os.walk(scan_dir):
         for file in files:
-            if file.endswith(('.tf', '.json', '.yaml', '.yml')):
-                filepath = os.path.join(root, file)
-                try:
-                    with open(filepath, 'r') as f:
-                        iac_content += f"\n\n--- File: {filepath} ---\n{f.read()}\n"
-                except Exception:
-                    pass
+                if file.endswith(('.tf', '.json', '.yaml', '.yml')) and not file.endswith('.tfstate'):
+                    filepath = os.path.join(root, file)
+                    try:
+                        with open(filepath, 'r') as f:
+                            iac_content += f"\n\n--- File: {filepath} ---\n{f.read()}\n"
+                    except Exception:
+                        pass
 
     prompt = (
         "Review the following Infrastructure as Code for potential security vulnerabilities, misconfigurations, "
