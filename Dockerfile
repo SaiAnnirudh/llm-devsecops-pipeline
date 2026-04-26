@@ -1,2 +1,3 @@
 FROM nginx:alpine
-COPY . /usr/share/nginx/html
+COPY app/ /usr/share/nginx/html/
+COPY llm_validation_results.json /usr/share/nginx/html/

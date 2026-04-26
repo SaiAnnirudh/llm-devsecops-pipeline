@@ -1,0 +1,42 @@
+{
+  "Gemini": {
+    "status": "success",
+    "findings": [
+      {
+        "file_path": "terraform/ec2.tf",
+        "issue_title": "Unrestricted SSH Access via Security Groups",
+        "description": "The security groups for Jenkins, Kubernetes Master, and Kubernetes Workers allow inbound traffic on port 22 (SSH) from any source (0.0.0.0/0). This exposes the management interface of all cluster components to brute-force attacks and potential exploit attempts from the public internet.",
+        "original_code": "  ingress {\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }",
+        "suggested_code_replacement": "  ingress {\n    from_port   = 22\n    to_port     = 22\n    protocol    = \"tcp\"\n    cidr_blocks = [var.admin_remote_ip_range] # Restrict to known administrative IP ranges\n  }"
+      },
+      {
+        "file_path": "terraform/ec2.tf",
+        "issue_title": "Kubernetes API Server Publicly Accessible",
+        "description": "The Kubernetes Master security group allows traffic on port 6443 from '0.0.0.0/0'. This exposes the cluster's control plane API to the public internet. An attacker could attempt to authenticate or exploit vulnerabilities in the API server. In a DevSecOps pipeline, access should be restricted to the Jenkins server and authorized administrative IPs.",
+        "original_code": "resource \"aws_security_group\" \"k8_master_sg\" {\n  ...\n  ingress {\n    from_port   = 6443\n    to_port     = 6443\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }",
+        "suggested_code_replacement": "resource \"aws_security_group\" \"k8_master_sg\" {\n  ...\n  ingress {\n    from_port       = 6443\n    to_port         = 6443\n    protocol        = \"tcp\"\n    security_groups = [aws_security_group.jenkins_sg.id] # Allow Jenkins to talk to API server\n  }\n  ingress {\n    from_port   = 6443\n    to_port     = 6443\n    protocol    = \"tcp\"\n    cidr_blocks = [var.admin_remote_ip_range] # Allow admins via VPN/Trusted IP\n  }"
+      },
+      {
+        "file_path": "terraform/ec2.tf",
+        "issue_title": "Insecure Kubelet API Exposure",
+        "description": "Port 10250 (the Kubelet API) is exposed to the public internet on worker nodes. This port allows full control over the node if the Kubelet is misconfigured with anonymous authentication enabled. It should only be accessible by the Kubernetes Master components.",
+        "original_code": "resource \"aws_security_group\" \"k8_worker_sg\" {\n  ...\n  ingress {\n    from_port   = 10250\n    to_port     = 10250\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }",
+        "suggested_code_replacement": "resource \"aws_security_group\" \"k8_worker_sg\" {\n  ...\n  ingress {\n    from_port       = 10250\n    to_port         = 10250\n    protocol        = \"tcp\"\n    security_groups = [aws_security_group.k8_master_sg.id] # Only allow master to talk to kubelets\n  }"
+      },
+      {
+        "file_path": "terraform/ec2.tf",
+        "issue_title": "Broad NodePort Range Exposure",
+        "description": "The worker nodes allow public ingress on the entire default NodePort range (30000-32767). This allows any service exposed via NodePort to be reachable by the public internet, potentially bypassing intended ingress controls or exposing internal services unintentionally.",
+        "original_code": "  ingress {\n    from_port   = 30000\n    to_port     = 32767\n    protocol    = \"tcp\"\n    cidr_blocks = [\"0.0.0.0/0\"]\n  }",
+        "suggested_code_replacement": "  # Use an AWS Load Balancer and restrict NodePort access to the Load Balancer's Security Group\n  ingress {\n    from_port       = 30000\n    to_port         = 32767\n    protocol        = \"tcp\"\n    security_groups = [aws_security_group.lb_sg.id]\n  }"
+      },
+      {
+        "file_path": "terraform/ec2.tf",
+        "issue_title": "Deployment of Management/Control Infrastructure in Public Subnets",
+        "description": "The logic flaw lies in deploying Jenkins and Kubernetes Master/Worker nodes in a public subnet with public IP addresses. Standard security best practices (Well-Architected Framework) dictate that backend management servers and internal cluster nodes should reside in private subnets. Only an Ingress Controller or Load Balancer should reside in the public subnet.",
+        "original_code": "resource \"aws_instance\" \"k8_master\" {\n  ami                         = data.aws_ami.amazon_linux.id\n  instance_type               = var.instance_type\n  subnet_id                   = aws_subnet.public_subnet.id\n  vpc_security_group_ids      = [aws_security_group.k8_master_sg.id]\n  key_name                    = var.key_name\n  associate_public_ip_address = true\n\n  tags = {\n    Name = \"k8-master\"\n  }\n}",
+        "suggested_code_replacement": "resource \"aws_instance\" \"k8_master\" {\n  ami                         = data.aws_ami.amazon_linux.id\n  instance_type               = var.instance_type\n  subnet_id                   = aws_subnet.private_subnet.id # Move to private subnet\n  vpc_security_group_ids      = [aws_security_group.k8_master_sg.id]\n  key_name                    = var.key_name\n  associate_public_ip_address = false # Remove public IP\n\n  tags = {\n    Name = \"k8-master\"\n  }\n}"
+      }
+    ]
+  }
+}
