@@ -1,0 +1,22 @@
+{
+  "findings": [
+    {
+      "file": "terraform/s3_storage.tf",
+      "title": "Publicly Accessible S3 Bucket",
+      "severity": "HIGH",
+      "findings": "The S3 bucket is configured with public-read access, which exposes sensitive data to the entire internet. Vulnerable Code: resource \"aws_s3_bucket\" \"data\" {\n  bucket = \"company-backups\"\n  acl    = \"public-read\"\n} Suggested Fix: resource \"aws_s3_bucket\" \"data\" {\n  bucket = \"company-backups\"\n  acl    = \"private\"\n  control_object_ownership = true\n}"
+    },
+    {
+      "file": "terraform/ec2_instances.tf",
+      "title": "Unrestricted SSH Access (0.0.0.0/0)",
+      "severity": "MEDIUM",
+      "findings": "Security group allows SSH traffic from any IP address. This increases the risk of brute-force attacks. Vulnerable Code: ingress {\n  from_port   = 22\n  to_port     = 22\n  protocol    = \"tcp\"\n  cidr_blocks = [\"0.0.0.0/0\"]\n} Suggested Fix: ingress {\n  from_port   = 22\n  to_port     = 22\n  protocol    = \"tcp\"\n  cidr_blocks = [\"10.0.0.0/16\"] # Use your VPC CIDR\n}"
+    },
+    {
+      "file": "terraform/iam_roles.tf",
+      "title": "Hardcoded AWS Credentials",
+      "severity": "HIGH",
+      "findings": "Sensitive credentials found in plaintext within the terraform configuration. Vulnerable Code: provider \"aws\" {\n  region     = \"us-east-1\"\n  access_key = \"AKIAIOSFODNN7EXAMPLE\"\n  secret_key = \"wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY\"\n} Suggested Fix: provider \"aws\" {\n  region = \"us-east-1\"\n  # Use Environment Variables or AWS Vault instead\n}"
+    }
+  ]
+}
