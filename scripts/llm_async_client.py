@@ -58,7 +58,7 @@ def evaluate_with_gemini(prompt, api_key):
         if not api_key:
             return {"status": "skipped", "findings": "No API Key provided"}
             
-        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={api_key}"
         data = {
             "contents": [{"parts": [{"text": "You are a DevSecOps LLM engine. " + prompt}]}]
         }
@@ -134,9 +134,13 @@ def main():
     
     # Generate Prompt Payload
     iac_content = ""
-    for root, _, files in os.walk(scan_dir):
+    for root, dirs, files in os.walk(scan_dir):
+        # Skip the .terraform directory
+        if '.terraform' in dirs:
+            dirs.remove('.terraform')
+            
         for file in files:
-                if file.endswith(('.tf', '.json', '.yaml', '.yml')) and not file.endswith('.tfstate'):
+            if file.endswith(('.tf', '.json', '.yaml', '.yml')) and not file.endswith('.tfstate'):
                     filepath = os.path.join(root, file)
                     try:
                         with open(filepath, 'r') as f:
@@ -157,7 +161,7 @@ def main():
         f"\n{iac_content}"
     )
 
-    print(f"[LLM Scan] Initiating Gemini validation on {scan_dir}...")
+    print(f"[LLM Scan] Initiating Gemini validation on {scan_dir} (Payload size: {len(prompt)} chars)...")
 
     # Gemini (gemini-1.5-flash)
     gemini_thread = threading.Thread(
