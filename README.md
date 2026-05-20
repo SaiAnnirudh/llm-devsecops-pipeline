@@ -9,7 +9,7 @@
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture
 
 ```mermaid
 graph LR
@@ -33,17 +33,17 @@ graph LR
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-*   **🤖 AI-Driven Security Audits**: Leverages Gemini 2.0 Flash to analyze complex Cloud configurations that static tools often miss.
-*   **📊 Intelligence Dashboard**: A custom "Gemini-Shield" Command Center with side-by-side comparison of risks and AI-suggested fixes.
-*   **📈 Real-time Monitoring**: Integrated Prometheus & Grafana stack for tracking security trends and pipeline health.
-*   **⚡ Async Evaluation**: Optimized asynchronous scanning to handle multiple IaC files without blocking the pipeline.
-*   **🛡️ Multi-Tool Validation**: Combines the precision of Checkov with the intelligence of LLMs for defense-in-depth.
+*   **AI-Driven Security Audits**: Leverages Gemini 2.0 Flash to analyze complex Cloud configurations that static tools often miss.
+*   **Intelligence Dashboard**: A custom "Gemini-Shield" Command Center with side-by-side comparison of risks and AI-suggested fixes.
+*   **Real-time Monitoring**: Integrated Prometheus & Grafana stack for tracking security trends and pipeline health.
+*   **Async Evaluation**: Optimized asynchronous scanning to handle multiple IaC files without blocking the pipeline.
+*   **Multi-Tool Validation**: Combines the precision of Checkov with the intelligence of LLMs for defense-in-depth.
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### 1. Prerequisites
 *   AWS Account & EC2 Instance (Amazon Linux 2)
@@ -68,7 +68,7 @@ docker-compose -f docker-compose-monitoring.yml up -d
 
 ---
 
-## 🖥️ Security Intelligence Dashboard
+## Security Intelligence Dashboard
 
 The project includes a professional dashboard to visualize scan results.
 
@@ -78,7 +78,7 @@ The project includes a professional dashboard to visualize scan results.
 
 ---
 
-## 📊 Monitoring & Metrics
+## Monitoring & Metrics
 
 Access your monitoring stack at these endpoints:
 
@@ -89,7 +89,7 @@ Access your monitoring stack at these endpoints:
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 *   **Cloud**: AWS (VPC, EC2, S3, IAM)
 *   **CI/CD**: Jenkins, Docker
@@ -100,5 +100,5 @@ Access your monitoring stack at these endpoints:
 
 ---
 
-## 📝 License
+## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
